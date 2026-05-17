@@ -117,6 +117,17 @@ export function formatResultsForLLM(
   /** Array to collect all output lines */
   const outputLines: string[] = [];
 
+  if (results.query != null && results.query !== '') {
+    outputLines.push(`Query: ${results.query}`);
+  }
+
+  if (results.summary != null && results.summary !== '') {
+    outputLines.push('');
+    outputLines.push('=== Search Summary ===');
+    outputLines.push('');
+    outputLines.push(results.summary);
+  }
+
   const addSection = (title: string): void => {
     outputLines.push('');
     outputLines.push(`=== ${title} ===`);

@@ -17,9 +17,23 @@ interface VolcEngineWebResult {
   PublishTime?: string;
 }
 
+interface VolcEngineChoice {
+  Delta?: {
+    Role?: string;
+    Content?: string;
+  };
+  Message?: {
+    Role?: string;
+    Content?: string;
+  };
+  FinishReason?: string;
+  Index?: number;
+}
+
 interface VolcEngineResult {
   ResultCount?: number;
   WebResults?: VolcEngineWebResult[];
+  Choices?: VolcEngineChoice[];
 }
 
 interface VolcEngineResponse {
@@ -28,8 +42,13 @@ interface VolcEngineResponse {
   error?: string;
 }
 
-function parseSSEResponse(body: string): VolcEngineResponse | null {
+function parseSSEResponse(body: string): {
+  data: VolcEngineResponse | null;
+  summary: string;
+} {
   const events = body.split('\n\n').filter(Boolean);
+  let searchData: VolcEngineResponse | null = null;
+  const summaryParts: string[] = [];
 
   for (const event of events) {
     if (!event.startsWith('data:')) {
@@ -43,15 +62,21 @@ function parseSSEResponse(body: string): VolcEngineResponse | null {
 
     try {
       const parsed = JSON.parse(jsonStr) as VolcEngineResponse;
-      if (parsed.Result?.WebResults?.length) {
-        return parsed;
+      if ((parsed.Result?.WebResults?.length ?? 0) > 0 && !searchData) {
+        searchData = parsed;
+      }
+      const content =
+        parsed.Result?.Choices?.[0]?.Delta?.Content ??
+        parsed.Result?.Choices?.[0]?.Message?.Content;
+      if (content != null && content !== '') {
+        summaryParts.push(content);
       }
     } catch {
       continue;
     }
   }
 
-  return null;
+  return { data: searchData, summary: summaryParts.join('') };
 }
 
 function mapWebResults(webResults: VolcEngineWebResult[]): t.OrganicResult[] {
@@ -101,6 +126,9 @@ export const createVolcEngineAPI = (
           NeedUrl: true,
         },
         NeedSummary: true,
+        QueryControl: {
+          QueryRewrite: true,
+        },
       };
 
       const response = await axios.post<string | VolcEngineResponse>(
@@ -117,20 +145,26 @@ export const createVolcEngineAPI = (
       );
 
       const rawData = response.data;
-      const data: VolcEngineResponse | null =
-        typeof rawData === 'string'
-          ? parseSSEResponse(rawData)
-          : (rawData as VolcEngineResponse);
+      let volcData: VolcEngineResponse | null;
+      let summary = '';
 
-      if (!data?.Result?.WebResults?.length) {
+      if (typeof rawData === 'string') {
+        const parsed = parseSSEResponse(rawData);
+        volcData = parsed.data;
+        summary = parsed.summary;
+      } else {
+        volcData = rawData as VolcEngineResponse;
+      }
+
+      if ((volcData?.Result?.WebResults?.length ?? 0) === 0) {
         return { success: false, error: 'No results found' };
       }
 
-      if (data.error) {
-        return { success: false, error: data.error };
+      if (volcData.error != null && volcData.error !== '') {
+        return { success: false, error: volcData.error };
       }
 
-      const organicResults = mapWebResults(data.Result.WebResults);
+      const organicResults = mapWebResults(volcData.Result.WebResults);
 
       const results: t.SearchResultData = {
         organic: organicResults,
@@ -139,6 +173,7 @@ export const createVolcEngineAPI = (
         videos: [],
         news: [],
         relatedSearches: [],
+        summary,
       };
 
       return { success: true, data: results };

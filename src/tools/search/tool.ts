@@ -296,7 +296,12 @@ function createTool({
       });
       const turn = runnableConfig.toolCall?.turn ?? 0;
       const { output, references } = formatResultsForLLM(turn, searchResult);
-      const data: t.SearchResultData = { turn, ...searchResult, references };
+      const data: t.SearchResultData = {
+        turn,
+        query,
+        ...searchResult,
+        references,
+      };
       return [output, { [Constants.WEB_SEARCH]: data }];
     },
     {
@@ -402,9 +407,11 @@ export const createSearchTool = (
   });
 
   /** Create scraper based on scraperProvider */
-  let scraperInstance: t.BaseScraper;
+  let scraperInstance: t.BaseScraper | undefined;
 
-  if (scraperProvider === 'serper') {
+  if (scraperProvider === 'none') {
+    scraperInstance = undefined;
+  } else if (scraperProvider === 'serper') {
     scraperInstance = createSerperScraper({
       ...serperScraperOptions,
       apiKey: serperApiKey,

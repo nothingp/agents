@@ -4,7 +4,7 @@ import type { BaseReranker } from './rerankers';
 import { DATE_RANGE } from './schema';
 
 export type SearchProvider = 'serper' | 'searxng' | 'tavily' | 'volcengine';
-export type ScraperProvider = 'firecrawl' | 'serper' | 'tavily';
+export type ScraperProvider = 'firecrawl' | 'serper' | 'tavily' | 'none';
 export type RerankerType = 'infinity' | 'jina' | 'cohere' | 'none';
 
 export interface Highlight {
@@ -33,6 +33,8 @@ export type ResultReference = {
 };
 export interface SearchResultData {
   turn?: number;
+  query?: string;
+  summary?: string;
   organic?: ProcessedOrganic[];
   topStories?: ProcessedTopStory[];
   images?: ImageResult[];

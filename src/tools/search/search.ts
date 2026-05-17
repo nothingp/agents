@@ -457,7 +457,20 @@ export const createSourceProcessor = (
   topResults: number;
 } => {
   if (!scraperInstance) {
-    throw new Error('Scraper instance is required');
+    return {
+      processSources: async ({ result }): Promise<t.SearchResultData> => {
+        if (!result.data) {
+          return {
+            organic: [],
+            topStories: [],
+            images: [],
+            relatedSearches: [],
+          };
+        }
+        return result.data;
+      },
+      topResults: config.topResults ?? 5,
+    };
   }
   const {
     topResults = 5,
